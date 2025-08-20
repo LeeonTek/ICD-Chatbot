@@ -6,11 +6,17 @@ from openai import OpenAI
 from context import SYSTEM_PROMPT
 
 load_dotenv()
+
 API_KEY = os.getenv("OPENAI_API_KEY")
+OPEN_AI_MODEL = os.getenv("OPENAI_MODEL","gpt-4o-mini")
+
 if not API_KEY:
     raise RuntimeError("OPENAI_API_KEY missing in .env")
-client = OpenAI(api_key=API_KEY)
 
+print(f"Using model {OPEN_AI_MODEL}")
+
+
+client = OpenAI(api_key=API_KEY)
 app = Flask(__name__)
 CORS(app) 
 
@@ -34,13 +40,14 @@ def chat():
         messages.append({"role": "user", "content": user_message})
 
         resp = client.chat.completions.create(
-            model="gpt-4o-mini",
+            model=OPEN_AI_MODEL,
             messages=messages,
             temperature=0.7,
         )
         answer = resp.choices[0].message.content
         return jsonify({"response": answer})
     except Exception as e:
+        print(e)
         return jsonify({"error": str(e)}), 500
 
 if __name__ == "__main__":

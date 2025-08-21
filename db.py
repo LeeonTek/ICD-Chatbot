@@ -26,6 +26,7 @@ def create_tables():
         user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
         session_name VARCHAR(255),
         started_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        history_summary TEXT DEFAULT ''
     );
 
     CREATE TABLE IF NOT EXISTS chats (
@@ -45,9 +46,6 @@ def create_tables():
     finally:
         conn.close()
 
-# -------------------------
-# Users
-# -------------------------
 def get_user_by_username(username: str) -> Dict[str, Any] | None:
     conn = get_connection()
     try:
@@ -70,9 +68,6 @@ def insert_user(username: str, password_hash: str) -> int:
     finally:
         conn.close()
 
-# -------------------------
-# Sessions
-# -------------------------
 def create_session(user_id: int, session_name: str | None = None) -> int:
     conn = get_connection()
     try:
@@ -135,9 +130,6 @@ def list_sessions_with_preview(user_id: int) -> List[Dict[str, Any]]:
     finally:
         conn.close()
 
-# -------------------------
-# Chats / Messages
-# -------------------------
 def insert_chat(session_id: int, user_message: str, ai_response: str, feedback: str | None = None) -> int:
     conn = get_connection()
     try:
@@ -192,9 +184,6 @@ def update_feedback(chat_id: int, feedback: str):
     finally:
         conn.close()
 
-# -------------------------
-# New helper: sessions + messages for a user (used on login)
-# -------------------------
 def get_user_sessions_with_messages(user_id: int) -> List[Dict[str, Any]]:
     sessions = list_sessions_with_preview(user_id)
     out = []
@@ -212,3 +201,25 @@ def get_user_sessions_with_messages(user_id: int) -> List[Dict[str, Any]]:
             "messages": chats
         })
     return out
+
+def update_session_summary(session_id: int, summary: str):
+    conn = get_connection()
+    try:
+        with conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    "UPDATE chat_sessions SET history_summary=%s WHERE id=%s",
+                    (summary, session_id)
+                )
+    finally:
+        conn.close()
+
+def get_session_summary(session_id: int) -> str:
+    conn = get_connection()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("SELECT history_summary FROM chat_sessions WHERE id=%s", (session_id,))
+            row = cur.fetchone()
+            return row[0] if row else ""
+    finally:
+        conn.close()

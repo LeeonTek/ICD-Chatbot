@@ -136,25 +136,56 @@ def chat():
     else:
         session_id = dbx.create_session(user_id, "New Chat")
 
-    # build history
+    # Build history
     history = dbx.get_history_pairs(session_id)
+    summary = dbx.get_session_summary(session_id)
+
     messages = [{"role": "system", "content": SYSTEM_PROMPT}]
-    for m in history:
+    if summary:
+        messages.append({"role": "system", "content": f"Summary of previous conversation:\n{summary}"})
+
+    # include last 10 chat pairs to keep context
+    for m in history[-20:]:
         messages.append({"role": m["role"], "content": m["content"]})
+
     messages.append({"role": "user", "content": user_message})
 
     try:
         resp = client.chat.completions.create(
             model=OPEN_AI_MODEL,
             messages=messages,
-            temperature=0.3,  # factual
+            temperature=0.3,
         )
         answer = resp.choices[0].message.content
         chat_id = dbx.insert_chat(session_id, user_message, answer, feedback=None)
+
+        # Update session summary for memory
+        summary_prompt = f"""
+        Summarize the following conversation in a structured, chronological timeline for future reference. 
+        Keep it concise but preserve the order of what the user asked and how the assistant responded. 
+        Do not merge or rephrase the sequence into a single narrative—use numbered steps.
+
+        Previous summary:
+        {summary or "None"}
+
+        New conversation:
+        User: {user_message}
+        Assistant: {answer}
+        """
+
+        summary_resp = client.chat.completions.create(
+            model=OPEN_AI_MODEL,
+            messages=[{"role": "user", "content": summary_prompt}],
+            temperature=0.0,
+        )
+        summary_text = summary_resp.choices[0].message.content
+        dbx.update_session_summary(session_id, summary_text)
+
         return jsonify({"response": answer, "chat_id": chat_id, "session_id": session_id}), 200
     except Exception as e:
         print("Chat error:", e)
         return jsonify({"error": str(e)}), 500
+
 
 # feedback
 @app.post("/feedback")

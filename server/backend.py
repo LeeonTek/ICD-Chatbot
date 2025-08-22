@@ -5,8 +5,8 @@ from dotenv import load_dotenv
 from werkzeug.security import generate_password_hash, check_password_hash
 from openai import OpenAI
 
-import db as dbx
-from context import SYSTEM_PROMPT
+import server.db.db as dbx
+from server.context import SYSTEM_PROMPT
 
 load_dotenv()
 
